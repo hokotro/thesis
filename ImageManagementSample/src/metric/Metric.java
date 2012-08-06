@@ -5,16 +5,18 @@ import com.kadar.image.message.handler.StatisticMessageType;
 
 public class Metric {
 	/*
-	 * pangás: darabszám, mely megadja h mennyi elemmel nem foglalkozok még 
+	 * pangás: darabszám, mely megadja h mennyi elemmel nem foglalkozok még,
 	 * ezen felül kezdek csak számolni statisztikát, mely megmondja
 	 * szükség van e új instance indítására
 	 */
-	public static int stagnation = 50;
+	public static int stagnation = 2;
 	/*
 	 * threshold for conversion of small images
 	 * when it is upper then 10%, we have to do scale
 	 */
 	public static final float SmallImageConvertion = 1f;
+	public static final float MediumImageConvertion = 2f;
+	public static final float LargeImageConvertion = 3f;
 	/*
 	 * threshold of starting new instance
 	 */
@@ -27,7 +29,7 @@ public class Metric {
 	/*
 	 * threshold of starting new instance
 	 */
-	private static final float InstanceStartUpThresholdTime = 110f;
+	public static final float InstanceStartUpThresholdTime = 110f;
 	//104, 94 92 106 97 103
 	
 
@@ -46,4 +48,7 @@ public class Metric {
 		}
 		return true;
 	}
+
+
+
 }

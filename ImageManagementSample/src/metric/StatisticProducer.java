@@ -19,13 +19,19 @@ public class StatisticProducer implements Runnable {
 
 	private MessageHandler smh;
 	private EC2Handler ec2;
-	private Map<String, MessageHandler> smallInstances;
 	private DelayQueue<DelayedStatMessage> smallInstancesStat;
+	private DelayQueue<DelayedStatMessage> mediumInstancesStat;
+	private DelayQueue<DelayedStatMessage> largeInstancesStat;
 	
 	
-	public StatisticProducer(Map<String,MessageHandler> smallInstances, DelayQueue<DelayedStatMessage> smallInstancesStat) throws AmazonServiceException, AmazonClientException, IOException{
-		this.smallInstances = smallInstances;
+	public StatisticProducer(DelayQueue<DelayedStatMessage> smallInstancesStat,
+			DelayQueue<DelayedStatMessage> mediumInstancesStat,
+			DelayQueue<DelayedStatMessage> largeInstancesStat
+		) throws AmazonServiceException, AmazonClientException, IOException{
+		
 		this.smallInstancesStat = smallInstancesStat;
+		this.mediumInstancesStat = mediumInstancesStat;
+		this.largeInstancesStat = largeInstancesStat;
 		smh = new MessageHandler(Config.STATISTICQUEUE);
 		ec2 = new EC2Handler();
 	}
@@ -42,26 +48,32 @@ public class StatisticProducer implements Runnable {
 							System.out.println("Instance startup time: " + msg.getTime());
 
 						}else if(msg.getStatisticType().equals(StatisticMessageType.SmallImageConvertion)){
-								
+							
 							DelayedStatMessage dtm = new DelayedStatMessage();
 							dtm.setStatisticMessage(msg);
 							dtm.setEndOfDelay(Config.StatisticConsumerDelay);
 							dtm.setQueueInsertTime(System.currentTimeMillis());
 							this.smallInstancesStat.add(dtm);
 							System.out.println("in: " + msg);
-							
-							/*
-							if(!Metric.checkThreshold(msg)){								
-								System.out.println("On-demand");
-								List<String> ids = ec2.runInstance(Config.ConverterInstanceImageId, Config.smallInstanceType, 1);
-								for(String id: ids){
-									//registerInstance(id);
-								}
-							}
-							else{
-								System.out.println("Not On-demand");							
-							}*/
-							
+						
+						}else if(msg.getStatisticType().equals(StatisticMessageType.MediumImageConvertion)){
+						
+							DelayedStatMessage dtm = new DelayedStatMessage();
+							dtm.setStatisticMessage(msg);
+							dtm.setEndOfDelay(Config.StatisticConsumerDelay);
+							dtm.setQueueInsertTime(System.currentTimeMillis());
+							this.mediumInstancesStat.add(dtm);
+							System.out.println("in: " + msg);
+					
+						}else if(msg.getStatisticType().equals(StatisticMessageType.LargeImageConvertion)){
+					
+							DelayedStatMessage dtm = new DelayedStatMessage();
+							dtm.setStatisticMessage(msg);
+							dtm.setEndOfDelay(Config.StatisticConsumerDelay);
+							dtm.setQueueInsertTime(System.currentTimeMillis());
+							this.largeInstancesStat.add(dtm);
+							System.out.println("in: " + msg);
+				
 						}
 					}
 					

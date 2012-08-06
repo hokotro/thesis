@@ -8,6 +8,7 @@ import java.util.Random;
 
 import metric.Config;
 
+import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.JsonParseException;
 import org.codehaus.jackson.map.JsonMappingException;
 
@@ -24,11 +25,18 @@ public class S3Consumer implements Runnable {
 	private MessageHandler s3mh;
 
 	private Map<String, MessageHandler> smallInstances;
+	private Map<String, MessageHandler> mediumInstances;
+	private Map<String, MessageHandler> largeInstances;
 	
-	public S3Consumer(Map<String, MessageHandler> smallInstances) throws AmazonServiceException, AmazonClientException, IOException{
+	public S3Consumer(Map<String, MessageHandler> smallInstances, 
+			Map<String, MessageHandler> mediumInstances, 
+			Map<String, MessageHandler> largeInstances) 
+					throws AmazonServiceException, AmazonClientException, IOException{
 		s3mh = new MessageHandler(Config.S3QUEUE);
 		ec2 = new EC2Handler();
-		this.smallInstances = smallInstances; 
+		this.smallInstances = smallInstances;
+		this.mediumInstances = mediumInstances;
+		this.largeInstances = largeInstances;
 	}
 
 	@Override
@@ -37,28 +45,30 @@ public class S3Consumer implements Runnable {
 		System.out.println("Messages from " + Config.S3QUEUE + ": ");
 		while(true){
 
-			try {				
-				if(smallInstances.size() > 0){ 
-					String worker = getSmallWorker();
-					
-					if( worker != null){
-						for(TaskMessage tm: s3mh.receiveTaskMessagesWithDelete(Config.numberOfMaxReceivedMessage)){
-							if(tm != null){
-								System.out.println("Message from S3: " + tm);
-								
-								MessageHandler mh = smallInstances.get(worker);
-								TaskMessage ntm = new TaskMessage.Builder()
-								.setKeyOfImage(tm.getKeyOfImage())
-								.setValue(tm.getValue())								
-								.setMessageType(TaskMessageType.ImageToConvert)
-								.setStartTime(System.currentTimeMillis())				
-								.build();
-								
-								mh.sendMessage(ntm);
-							}
+			try {
+				String smallworker, mediumworker, largeworker;
+				smallworker = (smallInstances.size() > 0) ? smallworker = getSmallWorker() : null;
+				mediumworker = (mediumInstances.size() > 0) ? mediumworker = getMediumWorker() : null;
+				largeworker = (largeInstances.size() > 0) ? largeworker = getLargeWorker() : null;
+						
+
+				for(TaskMessage tm:  
+					s3mh.receiveTaskMessagesWithDelete(Config.numberOfMaxReceivedMessage)){			
+						if( smallworker != null && tm != null){
+							System.out.println("Message from S3 to small worker : " + tm);							
+							sendMessage(smallworker, smallInstances, tm);							
+						}		
+						if( mediumworker != null && tm != null){
+							System.out.println("Message from S3 to medium worker : " + tm);							
+							sendMessage(mediumworker, mediumInstances, tm);							
+						}		
+						if( largeworker != null && tm != null){
+							System.out.println("Message from S3 to large worker : " + tm);							
+							sendMessage(largeworker, largeInstances, tm);							
 						}
-					}
 				}
+
+				
 			} catch (AmazonServiceException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -78,10 +88,44 @@ public class S3Consumer implements Runnable {
 		}
 
 	}
+
+	private static void sendMessage(String workerid, Map<String, MessageHandler> instances, TaskMessage tm) throws AmazonServiceException, JsonGenerationException, JsonMappingException, AmazonClientException, IOException{
+		TaskMessage ntm = new TaskMessage.Builder()
+		.setKeyOfImage(tm.getKeyOfImage())
+		.setValue(tm.getValue())								
+		.setMessageType(TaskMessageType.ImageToConvert)
+		.setStartTime(System.currentTimeMillis())				
+		.build();
+
+		MessageHandler mh = instances.get(workerid);
+		mh.sendMessage(ntm);
+	}
+	
 	
 	private String getSmallWorker(){
 		List<String> list = new ArrayList<String>();
-		for(String str : ec2.listOfRunningInstances(Config.ConverterInstanceImageId, Config.smallInstanceType) ){
+		for(String str : ec2.listOfRunningInstances(Config.ConverterInstanceImageId, 
+				Config.smallInstanceType) ){
+			list.add(str);
+		}
+		Random random = new Random();
+		int id = random.nextInt(list.size());
+		return list.get(id);
+	}
+	private String getMediumWorker(){
+		List<String> list = new ArrayList<String>();
+		for(String str : ec2.listOfRunningInstances(Config.ConverterInstanceImageId, 
+				Config.mediumInstanceType) ){
+			list.add(str);
+		}
+		Random random = new Random();
+		int id = random.nextInt(list.size());
+		return list.get(id);
+	}
+	private String getLargeWorker(){
+		List<String> list = new ArrayList<String>();
+		for(String str : ec2.listOfRunningInstances(Config.ConverterInstanceImageId, 
+				Config.largeInstanceType) ){
 			list.add(str);
 		}
 		Random random = new Random();

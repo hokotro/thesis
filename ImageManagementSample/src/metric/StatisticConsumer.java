@@ -21,12 +21,19 @@ import com.kadar.image.message.handler.TaskMessageType;
 
 public class StatisticConsumer implements Runnable {
 
-	private static Map<String, MessageHandler> smallInstances;
+	//private Map<String, MessageHandler> smallInstances;
 	private DelayQueue<DelayedStatMessage> smallInstancesStat;
+	private DelayQueue<DelayedStatMessage> mediumInstancesStat;
+	private DelayQueue<DelayedStatMessage> largeInstancesStat;
 	
-	public StatisticConsumer(Map<String,MessageHandler> smallInstances, DelayQueue<DelayedStatMessage> smallInstancesStat) throws AmazonServiceException, AmazonClientException, IOException{
-		this.smallInstances = smallInstances;
+	public StatisticConsumer(DelayQueue<DelayedStatMessage> smallInstancesStat,
+			DelayQueue<DelayedStatMessage> mediumInstancesStat,
+			DelayQueue<DelayedStatMessage> largeInstancesStat
+		) throws AmazonServiceException, AmazonClientException, IOException{
+
 		this.smallInstancesStat = smallInstancesStat;
+		this.mediumInstancesStat = mediumInstancesStat;
+		this.largeInstancesStat = largeInstancesStat;
 	}
 	
 	
@@ -41,7 +48,9 @@ public class StatisticConsumer implements Runnable {
 			DelayedStatMessage msg;
 			try {
 				msg = smallInstancesStat.take();
-				System.out.println(msg);
+				msg = mediumInstancesStat.take();
+				msg = largeInstancesStat.take();
+				//System.out.println(msg);
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -49,7 +58,8 @@ public class StatisticConsumer implements Runnable {
 		}
 	}
 
-	private static void registerInstance(String instanceId) throws AmazonServiceException, AmazonClientException, IOException{		
+	/*
+	private void registerInstance(String instanceId) throws AmazonServiceException, AmazonClientException, IOException{		
 		System.out.println("Register new instance: " + instanceId);
 		MessageHandler mh = new MessageHandler(instanceId + "-queue");
 		mh.sendMessage(
@@ -60,5 +70,6 @@ public class StatisticConsumer implements Runnable {
 				);
 		smallInstances.put(instanceId, mh);
 	}
+	*/
 	
 }
