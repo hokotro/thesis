@@ -5,7 +5,7 @@ public class Config{
 	/*
 	 * id of the converter machine image 
 	 */
-	public static final String ConverterInstanceImageId = "ami-856cc7ec";
+	public static final String ConverterInstanceImageId = "ami-5d12b934";
 	/*
 	 * Amazon Instance type in this application to small instance type
 	 */

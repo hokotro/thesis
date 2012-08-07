@@ -55,15 +55,18 @@ public class S3Consumer implements Runnable {
 				for(TaskMessage tm:  
 					s3mh.receiveTaskMessagesWithDelete(Config.numberOfMaxReceivedMessage)){			
 						if( smallworker != null && tm != null){
-							System.out.println("Message from S3 to small worker : " + tm);							
+							System.out.println("Message from S3 to small worker : " + tm);	
+							tm.setMessageType(TaskMessageType.ConvertSmallImage);						
 							sendMessage(smallworker, smallInstances, tm);							
 						}		
 						if( mediumworker != null && tm != null){
-							System.out.println("Message from S3 to medium worker : " + tm);							
+							System.out.println("Message from S3 to medium worker : " + tm);		
+							tm.setMessageType(TaskMessageType.ConvertMediumImage);					
 							sendMessage(mediumworker, mediumInstances, tm);							
 						}		
 						if( largeworker != null && tm != null){
-							System.out.println("Message from S3 to large worker : " + tm);							
+							System.out.println("Message from S3 to large worker : " + tm);		
+							tm.setMessageType(TaskMessageType.ConvertLargeImage);					
 							sendMessage(largeworker, largeInstances, tm);							
 						}
 				}
@@ -93,7 +96,7 @@ public class S3Consumer implements Runnable {
 		TaskMessage ntm = new TaskMessage.Builder()
 		.setKeyOfImage(tm.getKeyOfImage())
 		.setValue(tm.getValue())								
-		.setMessageType(TaskMessageType.ImageToConvert)
+		.setMessageType(tm.getMessageType())
 		.setStartTime(System.currentTimeMillis())				
 		.build();
 
@@ -104,8 +107,7 @@ public class S3Consumer implements Runnable {
 	
 	private String getSmallWorker(){
 		List<String> list = new ArrayList<String>();
-		for(String str : ec2.listOfRunningInstances(Config.ConverterInstanceImageId, 
-				Config.smallInstanceType) ){
+		for(String str : smallInstances.keySet() ){
 			list.add(str);
 		}
 		Random random = new Random();
@@ -114,8 +116,7 @@ public class S3Consumer implements Runnable {
 	}
 	private String getMediumWorker(){
 		List<String> list = new ArrayList<String>();
-		for(String str : ec2.listOfRunningInstances(Config.ConverterInstanceImageId, 
-				Config.mediumInstanceType) ){
+		for(String str : mediumInstances.keySet() ){
 			list.add(str);
 		}
 		Random random = new Random();
@@ -124,8 +125,7 @@ public class S3Consumer implements Runnable {
 	}
 	private String getLargeWorker(){
 		List<String> list = new ArrayList<String>();
-		for(String str : ec2.listOfRunningInstances(Config.ConverterInstanceImageId, 
-				Config.largeInstanceType) ){
+		for(String str : largeInstances.keySet() ){
 			list.add(str);
 		}
 		Random random = new Random();

@@ -35,18 +35,22 @@ public class Main {
 		ec2 = new EC2Handler();
 		 
 		InstanceId = getInstanceId();	
-		if(InstanceId != null){
+	    System.out.println( InstanceId );
+		if(InstanceId != null || InstanceId.equals(" ") ){
 			InstanceType = ec2.getInstanceTypeById(InstanceId);
 			if(InstanceType == null){
 				InstanceType = "t1.micro";
 			}
 		}else{
-			InstanceId = "i-cd5cb0b6";
+			InstanceId = "i-c9288db2";
 			InstanceType = "t1.micro";
 		}
 
-			mh = new MessageHandler(InstanceId + "-queue");
-			smh = new MessageHandler("default-statistic-queue");
+		//if localhost must have an instance id to communicate via a queue 
+		//InstanceId = "i-c9288db2";
+		
+		mh = new MessageHandler(InstanceId + "-queue");
+		smh = new MessageHandler("default-statistic-queue");
 
 	    System.out.println("Config: " 
 	    		+ "InstanceId: " + InstanceId
@@ -89,9 +93,12 @@ public class Main {
 					smh.sendMessage(sm);
 					System.out.println("Instance started: " + endTime);
 					
-				}else if(tm.getMessageType().equals(TaskMessageType.ImageToConvert)){
+				}else if(tm.getMessageType().equals(TaskMessageType.ConvertSmallImage)
+						|| tm.getMessageType().equals(TaskMessageType.ConvertMediumImage)
+						|| tm.getMessageType().equals(TaskMessageType.ConvertLargeImage)
+						){
 								
-					Runnable worker = new ConvertConsumer(InstanceId, InstanceType, tm);
+					Runnable worker = new ConvertConsumer(InstanceId, tm);
 					executor.execute(worker);
 				}
 			}

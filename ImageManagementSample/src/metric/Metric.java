@@ -14,13 +14,9 @@ public class Metric {
 	 * threshold for conversion of small images
 	 * when it is upper then 10%, we have to do scale
 	 */
-	public static final float SmallImageConvertion = 1f;
-	public static final float MediumImageConvertion = 2f;
-	public static final float LargeImageConvertion = 3f;
-	/*
-	 * threshold of starting new instance
-	 */
-	private static final float StartInstance = 110f;
+	public static final float SmallImageConvertion = 0.5f;
+	public static final float MediumImageConvertion = 0.5f;
+	public static final float LargeImageConvertion = 0.5f;
 	/*
 	 * we must have a boolean that detect, we just have scaling up
 	 * in interval of threshold of starting new instance we have'nt scale up
@@ -29,14 +25,14 @@ public class Metric {
 	/*
 	 * threshold of starting new instance
 	 */
-	public static final float InstanceStartUpThresholdTime = 110f;
+	public static final long InstanceStartUpThresholdTime = 110000l;
 	//104, 94 92 106 97 103
 	
-
+	/*
 	public static boolean checkThreshold(StatisticMessage msg) throws InterruptedException{
 		
 		if(scaleUp){
-			Thread.sleep((int)InstanceStartUpThresholdTime);
+			//Thread.sleep((int)InstanceStartUpThresholdTime);
 			scaleUp = false;
 		}else{
 			if(msg.getStatisticType().equals(StatisticMessageType.SmallImageConvertion)){
@@ -48,6 +44,7 @@ public class Metric {
 		}
 		return true;
 	}
+	*/
 
 
 

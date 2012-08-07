@@ -55,15 +55,18 @@ public class ImageManagementSample {
 	
 	public static void main(String[] args) throws AmazonServiceException, AmazonClientException, IOException, InterruptedException, ExecutionException {
 		numberOfSmallInstance = Integer.parseInt(System.getProperty("small", "1"));
-		numberOfMediumInstance = Integer.parseInt(System.getProperty("meduim", "1"));
+		numberOfMediumInstance = Integer.parseInt(System.getProperty("medium", "1"));
 		numberOfLargeInstance = Integer.parseInt(System.getProperty("large", "1"));
 
 
 		ec2 = new EC2Handler();
 
+
+		//registerInstance("i-c9288db2", smallInstances);
+		
 		startUpSmallInstances();
 		//startUpMediumInstances();
-		//startUpMediumInstances();
+		//startUpLargeInstances();
 
 		
 		ExecutorService executor = Executors.newFixedThreadPool(NUMBEROFTHREAD);
@@ -85,6 +88,7 @@ public class ImageManagementSample {
 
 		long startTime = 0;
 		long endOfDelay = 0;
+		boolean scaling = false;
 
 		int sleep = 2000;		
 		while(true){
@@ -101,14 +105,23 @@ public class ImageManagementSample {
 			Callable<Boolean> sworker = new MetricCallable(smallInstancesStat, Metric.SmallImageConvertion);
 			Future<Boolean> ssubmit = executor.submit(sworker);
 			float delay = getDelay(startTime,endOfDelay);
-			System.out.println(delay);
-			if( ssubmit.get() ) {
+			//System.out.println(delay);
+			if( ssubmit.get() && ! scaling ) {
+				System.out.println("ScaleUp: ");				
 				startTime = System.currentTimeMillis();
-				endOfDelay = (long) Metric.InstanceStartUpThresholdTime;
-				System.out.println("ScaleUp: " + endOfDelay);
+				endOfDelay = Metric.InstanceStartUpThresholdTime;
+				scaling = true;
 				//for(String id: ec2.runInstance(Config.ConverterInstanceImageId, Config.smallInstanceType, 1) ){
 					//registerInstance(id, smallInstances);
 				//}
+			}
+			if(scaling){
+				System.out.println(getDelay(startTime,endOfDelay));
+				if(getDelay(startTime,endOfDelay) < 0){
+					startTime = 0;
+					endOfDelay = 0;
+					scaling = false;	
+				}
 			}
 			//System.out.println();
 
@@ -122,12 +135,14 @@ public class ImageManagementSample {
 			System.out.println(lsubmit.get());
 			*/
 			
+			
 			try {
 				Thread.sleep(sleep);
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			
 		}
 		
 	}
@@ -163,8 +178,11 @@ public class ImageManagementSample {
 	 */
 	private static void startUpSmallInstances() throws AmazonServiceException, AmazonClientException, IOException{
 		List<String> instanceids = new ArrayList<String>();
+		int cnt = 0;
 		for( String instanceId : ec2.listOfRunningInstances(Config.ConverterInstanceImageId, 
 				Config.smallInstanceType) ){
+			if(cnt == numberOfSmallInstance) break;
+			cnt++;
 			instanceids.add(instanceId);
 		}
 		
@@ -182,13 +200,28 @@ public class ImageManagementSample {
 		while(smallInstances.size() <= 0){
 			;;
 		}
+		
+		System.out.print("Small instances: ");
+		for(String id: smallInstances.keySet()){
+			System.out.print(id);
+		}
+		System.out.println();
 	}
 	private static void startUpMediumInstances() throws AmazonServiceException, AmazonClientException, IOException{
 		List<String> instanceids = new ArrayList<String>();
+		int cnt = 0;
 		for( String instanceId : ec2.listOfRunningInstances(Config.ConverterInstanceImageId, 
 				Config.mediumInstanceType) ){
-			instanceids.add(instanceId);
+			if(cnt == numberOfMediumInstance) break;
+			
+			// ha netalántán egyeznének azonosítók, akkor ő már ne legyen más típusú
+			// ez általában akkor fordulhat elő, ha azonos az instancetype
+			if( ! smallInstances.keySet().contains(instanceId) ){
+				instanceids.add(instanceId);
+				cnt++;
+			}
 		}
+			
 		
 		if(numberOfMediumInstance > instanceids.size() ){	
 			for( String instanceId : ec2.runInstance(Config.ConverterInstanceImageId, 
@@ -204,12 +237,27 @@ public class ImageManagementSample {
 		while(mediumInstances.size() <= 0){
 			;;
 		}
+
+		System.out.print("Medium instances: ");
+		for(String id: mediumInstances.keySet()){
+			System.out.print(id);
+		}
+		System.out.println();
 	}
 	private static void startUpLargeInstances() throws AmazonServiceException, AmazonClientException, IOException{
 		List<String> instanceids = new ArrayList<String>();
+		int cnt = 0;
 		for( String instanceId : ec2.listOfRunningInstances(Config.ConverterInstanceImageId, 
 				Config.largeInstanceType) ){
-			instanceids.add(instanceId);
+			if(cnt == numberOfMediumInstance) break;
+			
+			// ha netalántán egyeznének azonosítók, akkor ő már ne legyen más típusú
+			// ez általában akkor fordulhat elő, ha azonos az instancetype
+			if( ! smallInstances.keySet().contains(instanceId) 
+					&& ! mediumInstances.keySet().contains(instanceId) ){
+				instanceids.add(instanceId);
+				cnt++;
+			}
 		}
 		
 		if(numberOfLargeInstance > instanceids.size() ){	
@@ -226,6 +274,12 @@ public class ImageManagementSample {
 		while(largeInstances.size() <= 0){
 			;;
 		}
+		
+		System.out.print("Large instances: ");
+		for(String id: largeInstances.keySet()){
+			System.out.print(id);
+		}
+		System.out.println();
 	}
 	
 }

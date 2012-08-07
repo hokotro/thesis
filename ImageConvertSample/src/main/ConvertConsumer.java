@@ -10,21 +10,22 @@ import com.kadar.image.message.handler.MessageHandler;
 import com.kadar.image.message.handler.StatisticMessage;
 import com.kadar.image.message.handler.StatisticMessageType;
 import com.kadar.image.message.handler.TaskMessage;
+import com.kadar.image.message.handler.TaskMessageType;
 import com.kadar.scalable.application.Scalable;
 
 public class ConvertConsumer implements Runnable {
 
 	private MessageHandler mh;
 	private String InstanceId;
-	private String InstanceType;
+	//private String InstanceType;
 	private TaskMessage tm;
 	private String bucketName = "kg-images";
 	private String DBDomain = "kg-images";
 	private ImageConvertServiceRemote convertservice;
 	DBImageHandler db;
 	
-	public ConvertConsumer(String InstanceId, String InstanceType, TaskMessage tm) throws IOException {
-		this.InstanceType = InstanceType;
+	public ConvertConsumer(String InstanceId, /*String InstanceType,*/ TaskMessage tm) throws IOException {
+		//this.InstanceType = InstanceType;
 		this.InstanceId = InstanceId;
 		this.tm = tm;
 		convertservice = new ImageConvertService(); 
@@ -38,29 +39,23 @@ public class ConvertConsumer implements Runnable {
 
 			String value = "";
 			String stat = "";
-	        if(InstanceType.equals("t1.micro")){
+
+	        if(TaskMessageType.ConvertSmallImage.equals(tm.getMessageType())){
 	        	value = convertservice.generateSmall(bucketName, tm.getKeyOfImage());
 				db.setSmall(DBDomain, tm.getKeyOfImage(), value );
 				stat = StatisticMessageType.SmallImageConvertion;
 	        }
-	        if(InstanceType.equals("m1.small")){
-	        	value = convertservice.generateSmall(bucketName, tm.getKeyOfImage());
-				db.setSmall(DBDomain, tm.getKeyOfImage(), value );
-				stat = StatisticMessageType.SmallImageConvertion;
-	        }
-	        if(InstanceType.equals("m1.medium")){
+	        if(TaskMessageType.ConvertMediumImage.equals(tm.getMessageType())){
 	        	value = convertservice.generateMedium(bucketName, tm.getKeyOfImage());
 				db.setMedium(DBDomain, tm.getKeyOfImage(), value );
 				stat = StatisticMessageType.MediumImageConvertion;				
 	        }
-	        if(InstanceType.equals("m1.large")){	        	
+	        if(TaskMessageType.ConvertLargeImage.equals(tm.getMessageType())){
 	        	value = convertservice.generateLarge(bucketName, tm.getKeyOfImage());
-				db.setLarge(DBDomain, tm.getKeyOfImage(), value );		        
+				db.setLarge(DBDomain, tm.getKeyOfImage(), value );
 				stat = StatisticMessageType.LargeImageConvertion;
-		        
-				//convertservice.generateMedium(bucketName, tm.getKeyOfImage());
-				//convertservice.generateSmall(bucketName, tm.getKeyOfImage());
 	        }
+
 	        
 			float endTime = (float) (System.currentTimeMillis() - startTime) / 1000;
 			
