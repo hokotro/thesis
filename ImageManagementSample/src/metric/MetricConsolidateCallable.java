@@ -5,12 +5,12 @@ import java.util.concurrent.DelayQueue;
 
 import com.kadar.image.message.handler.DelayedStatMessage;
 
-public class MetricCallable implements Callable<Boolean> {
+public class MetricConsolidateCallable implements Callable<Boolean>{
 
 	DelayQueue<DelayedStatMessage> InstancesStat = new DelayQueue<DelayedStatMessage>();
 	float metric;
-	
-	public MetricCallable(DelayQueue<DelayedStatMessage> InstanceStat, float metric){
+
+	public MetricConsolidateCallable(DelayQueue<DelayedStatMessage> InstanceStat, float metric){
 		this.InstancesStat = InstanceStat;
 		this.metric = metric;
 	}
@@ -20,23 +20,24 @@ public class MetricCallable implements Callable<Boolean> {
 		//System.out.println("Stat: " + metric);			
 		if( InstancesStat.size() > Metric.stagnation){ 				
 			float[] statistic = getRawStatistic(InstancesStat);		
-		
+
 			return calculate(statistic, metric);
 		}
 		return false;
 	}	
+
 	
-	
+
 	/*
-	 * megszámolom mennyi lépte túl a köszöböt, ha ez több mint a 18% akkor true
+	 * megszámolom mennyi van a köszöb alatt, ha ez több mint a 90% akkor true
 	 */
 	private static boolean calculate(float[] values, float threshold){
 		int piecesOfThreshold = 0;
 		for(float val: values){
-			if(val > threshold ) piecesOfThreshold++; 
+			if(val < threshold ) piecesOfThreshold++; 
 		}
 				
-		float a = values.length * 0.2f;
+		float a = values.length * 0.9f;
 		return (piecesOfThreshold > a) ? true : false; 
 	}
 	
@@ -54,6 +55,4 @@ public class MetricCallable implements Callable<Boolean> {
 		}
 		return statistic;
 	}
-
-
 }

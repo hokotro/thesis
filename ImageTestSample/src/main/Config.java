@@ -9,4 +9,13 @@ public class Config {
 	 * the path of the directory, which contains a lot of images to test the application
 	 */
 	public static final String ImageGaleryPath = "/home/hokotro/thesis_galery/";
+	
+	/*
+	 * mérési eredmény: 
+	 * - ha 1.0 vagy annál kisebb, akkor nagyobb a szórás, 
+	 * van benne egy-két kirívóan magas érték ami nekünk jelen esetben nem megfelelő
+	 * - ha 3, 5 vagy nagyobb, akkor meg túl közeli értékeket kapunk, 
+	 * és ebben a nagyon kicsi intervallumhoz képes nem kapunk szignifikáns eltéréseket
+	 */
+	public static final double ParetoAlpha = 3.0;
 }

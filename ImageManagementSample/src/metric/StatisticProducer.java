@@ -41,7 +41,7 @@ public class StatisticProducer implements Runnable {
 
 		while(true){
 			try {
-				for(StatisticMessage msg: smh.receiveStatisticMessagesWithDelete(Config.numberOfMaxReceivedMessage)){
+				for(StatisticMessage msg: smh.receiveStatisticMessagesWithDelete(Metric.numberOfMaxReceivedMessage)){
 					if(msg != null){
 						
 						if(msg.getStatisticType().equals(StatisticMessageType.StartInstance)){
@@ -51,27 +51,27 @@ public class StatisticProducer implements Runnable {
 							
 							DelayedStatMessage dtm = new DelayedStatMessage();
 							dtm.setStatisticMessage(msg);
-							dtm.setEndOfDelay(Config.StatisticConsumerDelay);
+							dtm.setEndOfDelay(Metric.StatisticConsumerDelay);
 							dtm.setQueueInsertTime(System.currentTimeMillis());
-							this.smallInstancesStat.add(dtm);
+							this.smallInstancesStat.put(dtm);
 							System.out.println("in: " + msg);
 						
 						}else if(msg.getStatisticType().equals(StatisticMessageType.MediumImageConvertion)){
 						
 							DelayedStatMessage dtm = new DelayedStatMessage();
 							dtm.setStatisticMessage(msg);
-							dtm.setEndOfDelay(Config.StatisticConsumerDelay);
+							dtm.setEndOfDelay(Metric.StatisticConsumerDelay);
 							dtm.setQueueInsertTime(System.currentTimeMillis());
-							this.mediumInstancesStat.add(dtm);
+							this.mediumInstancesStat.put(dtm);
 							System.out.println("in: " + msg);
 					
 						}else if(msg.getStatisticType().equals(StatisticMessageType.LargeImageConvertion)){
 					
 							DelayedStatMessage dtm = new DelayedStatMessage();
 							dtm.setStatisticMessage(msg);
-							dtm.setEndOfDelay(Config.StatisticConsumerDelay);
+							dtm.setEndOfDelay(Metric.StatisticConsumerDelay);
 							dtm.setQueueInsertTime(System.currentTimeMillis());
-							this.largeInstancesStat.add(dtm);
+							this.largeInstancesStat.put(dtm);
 							System.out.println("in: " + msg);
 				
 						}

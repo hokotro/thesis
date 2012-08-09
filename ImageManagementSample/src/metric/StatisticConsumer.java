@@ -46,15 +46,10 @@ public class StatisticConsumer implements Runnable {
 				smallInstancesStat.take();
 			}	*/
 			DelayedStatMessage msg;
-			try {
-				msg = smallInstancesStat.take();
-				msg = mediumInstancesStat.take();
-				msg = largeInstancesStat.take();
-				//System.out.println(msg);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}	
+			msg = smallInstancesStat.poll();
+			msg = mediumInstancesStat.poll();
+			msg = largeInstancesStat.poll();
+			//System.out.println(msg);	
 		}
 	}
 

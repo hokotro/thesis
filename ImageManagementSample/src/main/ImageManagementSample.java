@@ -11,10 +11,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.logging.Logger;
+
+import org.codehaus.jackson.JsonGenerationException;
+import org.codehaus.jackson.map.JsonMappingException;
 
 import metric.Config;
 import metric.Metric;
 import metric.MetricCallable;
+import metric.MetricConsolidateCallable;
 import metric.StatisticConsumer;
 import metric.StatisticProducer;
 
@@ -29,8 +34,11 @@ import com.kadar.image.message.handler.TaskMessage;
 import com.kadar.image.message.handler.TaskMessageType;
 
 public class ImageManagementSample {
+	
+	//Logger logger = Logger.getLogger("management");
+	static ManagementLogger managementlogger = new ManagementLogger();
 
-    private static int NUMBEROFTHREAD = 4;
+    private static int NUMBEROFTHREAD = 8;
 
 	private static EC2Handler ec2;
 
@@ -54,9 +62,9 @@ public class ImageManagementSample {
 	
 	
 	public static void main(String[] args) throws AmazonServiceException, AmazonClientException, IOException, InterruptedException, ExecutionException {
-		numberOfSmallInstance = Integer.parseInt(System.getProperty("small", "1"));
-		numberOfMediumInstance = Integer.parseInt(System.getProperty("medium", "1"));
-		numberOfLargeInstance = Integer.parseInt(System.getProperty("large", "1"));
+		numberOfSmallInstance = Integer.parseInt(System.getProperty("small", String.valueOf(Metric.minNumberOfSmallInstance)));
+		numberOfMediumInstance = Integer.parseInt(System.getProperty("medium", String.valueOf(Metric.minNumberOfMediumInstance)));
+		numberOfLargeInstance = Integer.parseInt(System.getProperty("large", String.valueOf(Metric.minNumberOfLargeInstance)));
 
 
 		ec2 = new EC2Handler();
@@ -85,13 +93,14 @@ public class ImageManagementSample {
 		/*
 		 * accessories of startup time of an instance 
 		 */
-
 		long startTime = 0;
 		long endOfDelay = 0;
 		boolean scaling = false;
 
-		int sleep = 2000;		
-		while(true){
+		int sleep = 500;
+		//int sleep = 0;
+		while(true) {
+			System.out.println("Element in small statistic: " + smallInstancesStat.size());
 			
 			// a run() metódusba NEM kell a while(true)
 			/*
@@ -102,48 +111,70 @@ public class ImageManagementSample {
 			executor.execute(statconsumer);
 			*/
 			
-			Callable<Boolean> sworker = new MetricCallable(smallInstancesStat, Metric.SmallImageConvertion);
+			if(Metric.stagnation < smallInstancesStat.size() ){
+			Callable<Boolean> sworker = new MetricCallable(smallInstancesStat, Metric.SmallImageConvertionScaleUp);
 			Future<Boolean> ssubmit = executor.submit(sworker);
-			float delay = getDelay(startTime,endOfDelay);
-			//System.out.println(delay);
-			if( ssubmit.get() && ! scaling ) {
-				System.out.println("ScaleUp: ");				
+			if( ssubmit.get() && ! scaling && smallInstances.size() <= Metric.maxNumberOfSmallInstance) {
+				//System.out.println("ScaleUp: ");
+				managementlogger.info("Scale Up begin: ");
 				startTime = System.currentTimeMillis();
 				endOfDelay = Metric.InstanceStartUpThresholdTime;
 				scaling = true;
-				//for(String id: ec2.runInstance(Config.ConverterInstanceImageId, Config.smallInstanceType, 1) ){
-					//registerInstance(id, smallInstances);
-				//}
+				//smallInstancesStat.clear();
+				for(String id: ec2.runInstance(Config.ConverterInstanceImageId, Config.smallInstanceType, 1) ){
+					registerInstance(id, smallInstances);
+				}
 			}
 			if(scaling){
-				System.out.println(getDelay(startTime,endOfDelay));
+				//System.out.println(getDelay(startTime,endOfDelay));
 				if(getDelay(startTime,endOfDelay) < 0){
 					startTime = 0;
 					endOfDelay = 0;
 					scaling = false;	
+					smallInstancesStat.clear();
+					managementlogger.info("Scale Up end: ");
 				}
+			}
 			}
 			//System.out.println();
 
-			/*
-			Callable<Boolean> mworker = new MetricCallable(mediumInstancesStat, Metric.MediumImageConvertion);
-			Future<Boolean> msubmit = executor.submit(mworker);
-			System.out.println(msubmit.get());
+			
+			
+			Callable<Boolean> smallconsolidateworker = new MetricConsolidateCallable(smallInstancesStat, Metric.SmallImageConvertionConsolidate);
+			Future<Boolean> smallconssubmit = executor.submit(smallconsolidateworker);
+			if( ! scaling && smallconssubmit.get() && smallInstances.size() > 1 ) {
+				//System.out.println("Consolidate");
+				smallInstancesStat.clear();
+				consolidate(smallInstances);				
+				managementlogger.info("Consolidate: ");
+			}
+			
+			
 
-			Callable<Boolean> lworker = new MetricCallable(largeInstancesStat, Metric.LargeImageConvertion);
-			Future<Boolean> lsubmit = executor.submit(lworker);
-			System.out.println(lsubmit.get());
-			*/
 			
-			
-			try {
-				Thread.sleep(sleep);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+			if(sleep != 0)
+			{	
+				try {
+					Thread.sleep(sleep);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 			
 		}
+		
+	}
+	
+	
+	private static void consolidate(Map<String, MessageHandler> instances) throws AmazonServiceException, JsonGenerationException, JsonMappingException, AmazonClientException, IOException{
+		String one = instances.keySet().iterator().next();
+		MessageHandler mh = instances.get(one);
+		TaskMessage msg2 = new TaskMessage.Builder()
+		.setMessageType(TaskMessageType.InstanceShutdown)   	
+		.build();
+		mh.sendMessage(msg2);
+		instances.remove(one);
 		
 	}
 	
@@ -159,7 +190,8 @@ public class ImageManagementSample {
 	 * add to the actual instance map, and send a startmessage to the queue of the instance
 	 */
 	private static void registerInstance(String instanceId, Map<String, MessageHandler> Instances) throws AmazonServiceException, AmazonClientException, IOException{		
-		System.out.println("Register new instance: " + instanceId);
+		//System.out.println("Register new instance: " + instanceId);
+		managementlogger.info("Register new instance: " + instanceId);
 		MessageHandler mh = new MessageHandler(instanceId + "-queue");
 		mh.sendMessage(
 			 new TaskMessage.Builder()
@@ -201,11 +233,14 @@ public class ImageManagementSample {
 			;;
 		}
 		
+		StringBuilder idToLog = new StringBuilder();
 		System.out.print("Small instances: ");
 		for(String id: smallInstances.keySet()){
-			System.out.print(id);
+			System.out.print(id + ", ");
+			idToLog.append(id + ", ");
 		}
 		System.out.println();
+		//managementlogger.info("Small instances: " + idToLog);
 	}
 	private static void startUpMediumInstances() throws AmazonServiceException, AmazonClientException, IOException{
 		List<String> instanceids = new ArrayList<String>();
@@ -240,7 +275,7 @@ public class ImageManagementSample {
 
 		System.out.print("Medium instances: ");
 		for(String id: mediumInstances.keySet()){
-			System.out.print(id);
+			System.out.print(id + ", ");
 		}
 		System.out.println();
 	}
@@ -277,7 +312,7 @@ public class ImageManagementSample {
 		
 		System.out.print("Large instances: ");
 		for(String id: largeInstances.keySet()){
-			System.out.print(id);
+			System.out.print(id + ", ");
 		}
 		System.out.println();
 	}

@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Random;
 
 import metric.Config;
+import metric.Metric;
 
 import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.JsonParseException;
@@ -53,7 +54,7 @@ public class S3Consumer implements Runnable {
 						
 
 				for(TaskMessage tm:  
-					s3mh.receiveTaskMessagesWithDelete(Config.numberOfMaxReceivedMessage)){			
+					s3mh.receiveTaskMessagesWithDelete(Metric.numberOfMaxReceivedMessage)){			
 						if( smallworker != null && tm != null){
 							System.out.println("Message from S3 to small worker : " + tm);	
 							tm.setMessageType(TaskMessageType.ConvertSmallImage);						

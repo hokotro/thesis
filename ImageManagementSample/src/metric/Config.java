@@ -26,17 +26,5 @@ public class Config{
 	 * Queue to share Statistic, StatisticMessages
 	 */
 	public static final String STATISTICQUEUE = "default-statistic-queue";
-	/*
-	 * - One statistic live in this interval
-	 * - "Length" of DelayedQueue, with contains the DelayedStatMessages, 
-	 * which contains the real TaskMessages
-	 * - One statistic interval: we have statistic from this interval
-	 */
-	public static final long StatisticConsumerDelay = 600000l; //10 perc
-	/*
-	 * the maximum number of received messages, 
-	 * everywhere: taskmessages, statisticmessages etc. 
-	 */
-	public static final int numberOfMaxReceivedMessage = 10;
 	
 }
