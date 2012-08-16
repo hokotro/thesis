@@ -1,86 +1,84 @@
 package main;
 
+import java.io.File;
 import java.io.IOException;
-
-import com.kadar.image.aws.handler.DBImageHandler;
-import com.kadar.image.aws.handler.DBStatHandler;
-import com.kadar.image.convert.service.ImageConvertService;
-import com.kadar.image.convert.service.ImageConvertServiceRemote;
-import com.kadar.image.message.handler.MessageHandler;
-import com.kadar.image.message.handler.StatisticMessage;
-import com.kadar.image.message.handler.StatisticMessageType;
-import com.kadar.image.message.handler.TaskMessage;
-import com.kadar.image.message.handler.TaskMessageType;
-import com.kadar.scalable.application.Scalable;
+import com.kadar.aws.handler.S3Handler;
+import com.kadar.image.config.Config;
+import com.kadar.message.handler.MessageHandler;
+import com.kadar.message.handler.TaskMessage;
 
 public class ConvertConsumer implements Runnable {
 
-	private MessageHandler mh;
-	private String InstanceId;
-	//private String InstanceType;
+	private final String InstanceId;
+	private final S3Handler s3;
 	private TaskMessage tm;
-	private String bucketName = "kg-images";
-	private String DBDomain = "kg-images";
-	private ImageConvertServiceRemote convertservice;
-	DBImageHandler db;
+	private final String bucketName;
 	
-	public ConvertConsumer(String InstanceId, /*String InstanceType,*/ TaskMessage tm) throws IOException {
-		//this.InstanceType = InstanceType;
+	public ConvertConsumer(String InstanceId, TaskMessage tm) throws IOException {
+
 		this.InstanceId = InstanceId;
 		this.tm = tm;
-		convertservice = new ImageConvertService(); 
-		db = new DBImageHandler();
+		s3 = new S3Handler();
+		bucketName = Config.bucketName;
+		
 	}
 	
 	@Override
 	public void run() {
-		try{
-			long startTime = System.currentTimeMillis();	
+		tm.setInstanceId(InstanceId);
 
-			String value = "";
-			String stat = "";
+		String fileName = tm.getKeyOfImage();
 
-	        if(TaskMessageType.ConvertSmallImage.equals(tm.getMessageType())){
-	        	value = convertservice.generateSmall(bucketName, tm.getKeyOfImage());
-				db.setSmall(DBDomain, tm.getKeyOfImage(), value );
-				stat = StatisticMessageType.SmallImageConvertion;
-	        }
-	        if(TaskMessageType.ConvertMediumImage.equals(tm.getMessageType())){
-	        	value = convertservice.generateMedium(bucketName, tm.getKeyOfImage());
-				db.setMedium(DBDomain, tm.getKeyOfImage(), value );
-				stat = StatisticMessageType.MediumImageConvertion;				
-	        }
-	        if(TaskMessageType.ConvertLargeImage.equals(tm.getMessageType())){
-	        	value = convertservice.generateLarge(bucketName, tm.getKeyOfImage());
-				db.setLarge(DBDomain, tm.getKeyOfImage(), value );
-				stat = StatisticMessageType.LargeImageConvertion;
-	        }
-
-	        
-			float endTime = (float) (System.currentTimeMillis() - startTime) / 1000;
+		String[] filename = getFileExtension(fileName);
+		String fname = filename[0];
+		String ext = filename[1];
+		
+		File file = new File("temp." + fname + "." + ext);
+		s3.getObjectToFile(bucketName, tm.getKeyOfImage(), file);
+		
+		String newfile = fname + "_" + tm.getConvertValue() + "." + ext;
+		
+		try {
+			tm.setStartConvertTime(System.currentTimeMillis());
 			
+			Process p = Runtime.getRuntime().exec(new String[] {
+					"convert", "temp." + fname + "." + ext, 
+					"-resize", tm.getConvertValue(), 
+					newfile
+					 });
+			p.waitFor();						
 			
-			StatisticMessage sm = new StatisticMessage.Builder()
-				.setKeyOfImage(tm.getKeyOfImage())
-				.setStatisticType(stat)
-				.setTime(endTime)
-				.setValue(tm.getValue())
-				.setInstanceId(this.InstanceId)
-				.build();
-			MessageHandler statisticservice = new MessageHandler("default-statistic-queue");
-			statisticservice.sendMessage(sm);
+			File convertedfile = new File(newfile);
+			s3.putObjectWithPublicRead(bucketName, newfile, convertedfile);
 			
-			DBStatHandler statdb = new DBStatHandler("default-statistic");
-			statdb.putStatToDB(sm);
+			tm.setEndConvertTime(System.currentTimeMillis());			
+			MessageHandler smh = new MessageHandler(Config.statisticMessageQueue);
+			smh.sendMessage(tm);
 			
-			System.out.println("Converting successful: " 
-					+ "Key of Image: " + tm.getKeyOfImage()
-					+ ", convert: " + stat				
-					+ ", time: " + endTime);
+			//delete tmp
+			Process pd = Runtime.getRuntime().exec(new String[] {
+				"rm", "temp." + fname + "." + ext
+			});
+			pd.waitFor();
 			
-		}catch(IOException ex){
-			ex.printStackTrace();
-		}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}		
 	}
 
+	private String[] getFileExtension(String fileName){
+		String fname="";
+		String ext="";
+		int mid= fileName.lastIndexOf(".");
+		fname=fileName.substring(0,mid);
+		ext=fileName.substring(mid+1,fileName.length());  
+		//System.out.println("File name ="+fname);
+		//System.out.println("Extension ="+ext);  
+		return new String[] { fname, ext };
+	}
+	
 }

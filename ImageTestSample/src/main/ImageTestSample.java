@@ -14,7 +14,7 @@ public class ImageTestSample {
 
 		ExecutorService executor = Executors.newFixedThreadPool(NUMBEROFTHREAD);
 		int i = 0;
-		while(i < 10){
+		while(i < 1){
 			/*
 			 * a Curl run() metódusában van egy sleep(1000) !!
 			 * vagy Pareto

@@ -4,12 +4,15 @@ import java.io.IOException;
 
 import umontreal.iro.lecuyer.randvar.ParetoGen;
 import umontreal.iro.lecuyer.rng.LFSR113;
+import umontreal.iro.lecuyer.rng.LFSR258;
+import umontreal.iro.lecuyer.rng.MT19937;
 import umontreal.iro.lecuyer.rng.RandomStream;
 
 import edu.uprm.cga.ininsim.simpack.utils.ParetoGenerator;
 
 
 public class Curl implements Runnable {
+
 	String path = ".";
 	
 	public Curl(){
@@ -42,32 +45,37 @@ public class Curl implements Runnable {
 				files[i] = listOfFiles[i].getName();
 		}
 
-		RandomStream random = new LFSR113();
+		RandomStream random = new MT19937(new LFSR258());
 		ParetoGen pareto = new ParetoGen(random, Config.ParetoAlpha);
 		for(int i = 0; i < listOfFiles.length; i++){
 			double p = pareto.nextDouble();
 		
 			System.out.print("Pareto value: " + p );
-			p = p * 1000;
-			//p = p * 100;
+			//p = p * 1000;
+			p = p * 100;
 			long pl = (new Double(p)).longValue();
 			System.out.println(", " + p );
 
-			String command = "curl -T " + path + files[i] + "  " + Config.InstanceAddress + ":8080/ImageRestfulService/rest/imageservice/putFile/" + files[i];
-			System.out.println(command);
+			//String command = "curl -T " + path + files[i] + "  " + Config.InstanceAddress + ":8080/ImageRestfulService/rest/imageservice/putFile/" + files[i];
+			//System.out.println(command);
 			
 			try {
 				Thread.sleep( pl );
-			
-				Process process = Runtime.getRuntime().exec(command);	
+		
+				//String[] command = new String[] {"curl", "-T", path, files[i], Config.InstanceAddress, ":8080/ImageRestfulService/rest/imageservice/putFile/", files[i] };
+				//System.out.println(command);
+				Process process = Runtime.getRuntime().exec(new String[] {"curl", "-T", path + files[i], Config.InstanceAddress + ":8080/ImageRestfulAPI/rest/imageservice/putFile/", files[i] });
+				process.waitFor();
+				System.out.println(process.exitValue());
+				
 			} catch (IOException e) {
 					e.printStackTrace();
-			
+
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			} 
-				
+
 		}
 	}
 }

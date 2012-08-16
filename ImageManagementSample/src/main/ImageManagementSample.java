@@ -5,316 +5,117 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
+import java.util.Properties;
 import java.util.concurrent.DelayQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.logging.Logger;
 
-import org.codehaus.jackson.JsonGenerationException;
-import org.codehaus.jackson.map.JsonMappingException;
-
-import metric.Config;
-import metric.Metric;
-import metric.MetricCallable;
-import metric.MetricConsolidateCallable;
-import metric.StatisticConsumer;
-import metric.StatisticProducer;
-
-import s3.S3Consumer;
+import statcollection.StatCollection;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
-import com.kadar.image.aws.handler.EC2Handler;
-import com.kadar.image.message.handler.DelayedStatMessage;
-import com.kadar.image.message.handler.MessageHandler;
-import com.kadar.image.message.handler.TaskMessage;
-import com.kadar.image.message.handler.TaskMessageType;
+import com.kadar.aws.handler.EC2Handler;
+import com.kadar.image.config.Config;
+import com.kadar.message.handler.TaskMessage;
+import com.kadar.message.handler.TaskMessageType;
+import com.kadar.message.handler.MessageHandler;
 
 public class ImageManagementSample {
 	
-	//Logger logger = Logger.getLogger("management");
-	static ManagementLogger managementlogger = new ManagementLogger();
 
-    private static int NUMBEROFTHREAD = 8;
+	private static List<Group> groups;
+	private static StatHolder statAvgHolder, statholder;
+	private static TaskIssues taskissues;
 
-	private static EC2Handler ec2;
-
-	/*
-	 * accessories for small instances
-	 * smallInstances: Map: key: Id value: MessageHandler to a queue of the instance
-	 * smallInstancesStat: statistic for instances of small type
-	 * numberOfSmallInstance: number of small instances at the beginning
-	 */
-	private static int numberOfSmallInstance;
-	private static Map<String, MessageHandler> smallInstances = new HashMap<String, MessageHandler>();
-	static DelayQueue<DelayedStatMessage> smallInstancesStat = new DelayQueue<DelayedStatMessage>();
-	
-	private static int numberOfMediumInstance;
-	private static Map<String, MessageHandler> mediumInstances = new HashMap<String, MessageHandler>();
-	static DelayQueue<DelayedStatMessage> mediumInstancesStat = new DelayQueue<DelayedStatMessage>();
-	
-	private static int numberOfLargeInstance;
-	private static Map<String, MessageHandler> largeInstances = new HashMap<String, MessageHandler>();
-	static DelayQueue<DelayedStatMessage> largeInstancesStat = new DelayQueue<DelayedStatMessage>();
-	
-	
-	public static void main(String[] args) throws AmazonServiceException, AmazonClientException, IOException, InterruptedException, ExecutionException {
-		numberOfSmallInstance = Integer.parseInt(System.getProperty("small", String.valueOf(Metric.minNumberOfSmallInstance)));
-		numberOfMediumInstance = Integer.parseInt(System.getProperty("medium", String.valueOf(Metric.minNumberOfMediumInstance)));
-		numberOfLargeInstance = Integer.parseInt(System.getProperty("large", String.valueOf(Metric.minNumberOfLargeInstance)));
-
-
-		ec2 = new EC2Handler();
-
-
-		//registerInstance("i-c9288db2", smallInstances);
+	public static void main(String[] args) throws AmazonServiceException, AmazonClientException, IOException {
+		//ec2 = new EC2Handler();
+		//ec2.TerminateInstancesByImageId(Config.ConverterInstanceId);
 		
-		startUpSmallInstances();
-		//startUpMediumInstances();
-		//startUpLargeInstances();
 
+		groups = new ArrayList<Group>();
+		statAvgHolder = new StatHolder();
+		statAvgHolder.setDelay(Config.StatisticConsumerDelay);
+		statholder = new StatHolder();
+		statholder.setDelay(Config.StatisticConsumerDelayForGraph);
+		taskissues = new TaskIssues();
 		
-		ExecutorService executor = Executors.newFixedThreadPool(NUMBEROFTHREAD);
-
-		Runnable s3worker = new S3Consumer(smallInstances, mediumInstances, largeInstances);
-		executor.execute(s3worker);
+		// realtime
+		//initFromProperties();
 		
-		// a run() metódusba kell a while(true)
-		Runnable statproducer = new StatisticProducer(smallInstancesStat, mediumInstancesStat, largeInstancesStat);
-		executor.execute(statproducer);
+		// testing
+		Group group1 = new Group(getInstanceType("micro"), "1024x768", 1);
+		Group group2 = new Group(getInstanceType("micro"), "50%", 1);
+		groups.add(group1);
+		groups.add(group2);
 		
-		// a run() metódusba kell a while(true)
-		Runnable statconsumer = new StatisticConsumer(smallInstancesStat, mediumInstancesStat, largeInstancesStat);
-		executor.execute(statconsumer);
-
-		/*
-		 * accessories of startup time of an instance 
-		 */
-		long startTime = 0;
-		long endOfDelay = 0;
-		boolean scaling = false;
-
-		int sleep = 500;
-		//int sleep = 0;
-		while(true) {
-			System.out.println("Element in small statistic: " + smallInstancesStat.size());
+		
+		
+		Thread s3consumer = new Thread(new S3Consumer(groups,taskissues));
+		s3consumer.start();
+		
+		Thread statproducer = new Thread(new StatProducer(statAvgHolder, statholder, taskissues));
+		statproducer.start();
+		
+		
+		StatCollection statcollection = new StatCollection(statholder);
+		Thread statcollectionthread = new Thread(statcollection);
+		statcollectionthread.start();
+		
+		
+//		Thread graphconsumer = new Thread(new GraphConsumer(statcollection));
+//		graphconsumer.start();
+		
+		/*		
+		while(true){
 			
-			// a run() metódusba NEM kell a while(true)
-			/*
-			Runnable statproducer = new StatisticProducer(smallInstancesStat, mediumInstancesStat, largeInstancesStat);
-			executor.execute(statproducer);
-			
-			Runnable statconsumer = new StatisticConsumer(smallInstancesStat, mediumInstancesStat, largeInstancesStat);
-			executor.execute(statconsumer);
-			*/
-			
-			if(Metric.stagnation < smallInstancesStat.size() ){
-			Callable<Boolean> sworker = new MetricCallable(smallInstancesStat, Metric.SmallImageConvertionScaleUp);
-			Future<Boolean> ssubmit = executor.submit(sworker);
-			if( ssubmit.get() && ! scaling && smallInstances.size() <= Metric.maxNumberOfSmallInstance) {
-				//System.out.println("ScaleUp: ");
-				managementlogger.info("Scale Up begin: ");
-				startTime = System.currentTimeMillis();
-				endOfDelay = Metric.InstanceStartUpThresholdTime;
-				scaling = true;
-				//smallInstancesStat.clear();
-				for(String id: ec2.runInstance(Config.ConverterInstanceImageId, Config.smallInstanceType, 1) ){
-					registerInstance(id, smallInstances);
-				}
+			for(float f: statcollection.getCollection()){
+				System.out.print(f + ", ");
 			}
-			if(scaling){
-				//System.out.println(getDelay(startTime,endOfDelay));
-				if(getDelay(startTime,endOfDelay) < 0){
-					startTime = 0;
-					endOfDelay = 0;
-					scaling = false;	
-					smallInstancesStat.clear();
-					managementlogger.info("Scale Up end: ");
-				}
+			System.out.println();
+			
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
-			}
-			//System.out.println();
-
-			
-			
-			Callable<Boolean> smallconsolidateworker = new MetricConsolidateCallable(smallInstancesStat, Metric.SmallImageConvertionConsolidate);
-			Future<Boolean> smallconssubmit = executor.submit(smallconsolidateworker);
-			if( ! scaling && smallconssubmit.get() && smallInstances.size() > 1 ) {
-				//System.out.println("Consolidate");
-				smallInstancesStat.clear();
-				consolidate(smallInstances);				
-				managementlogger.info("Consolidate: ");
-			}
-			
-			
-
-			
-			if(sleep != 0)
-			{	
-				try {
-					Thread.sleep(sleep);
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-			
 		}
+		*/
 		
 	}
-	
-	
-	private static void consolidate(Map<String, MessageHandler> instances) throws AmazonServiceException, JsonGenerationException, JsonMappingException, AmazonClientException, IOException{
-		String one = instances.keySet().iterator().next();
-		MessageHandler mh = instances.get(one);
-		TaskMessage msg2 = new TaskMessage.Builder()
-		.setMessageType(TaskMessageType.InstanceShutdown)   	
-		.build();
-		mh.sendMessage(msg2);
-		instances.remove(one);
-		
-	}
-	
-	public static float getDelay( long startTime, long endOfDelay ) {
-		long tmp = startTime - System.currentTimeMillis() + endOfDelay; 
-				//TimeUnit.MILLISECONDS);
-		return (float) tmp / 1000;
-	}
 
-	
-	/*
-	 * register by instance id in the management machine
-	 * add to the actual instance map, and send a startmessage to the queue of the instance
-	 */
-	private static void registerInstance(String instanceId, Map<String, MessageHandler> Instances) throws AmazonServiceException, AmazonClientException, IOException{		
-		//System.out.println("Register new instance: " + instanceId);
-		managementlogger.info("Register new instance: " + instanceId);
-		MessageHandler mh = new MessageHandler(instanceId + "-queue");
-		mh.sendMessage(
-			 new TaskMessage.Builder()
-			.setMessageType(TaskMessageType.InstanceStart)
-			.setStartTime(System.currentTimeMillis())
-			.build() 
-			);
-		Instances.put(instanceId, mh);
-	}
 
-	/*
-	 * for small instances: 
-	 * get all running instance by imageid and instance type
-	 * if not enough, start more i
-	 * register 
-	 */
-	private static void startUpSmallInstances() throws AmazonServiceException, AmazonClientException, IOException{
-		List<String> instanceids = new ArrayList<String>();
-		int cnt = 0;
-		for( String instanceId : ec2.listOfRunningInstances(Config.ConverterInstanceImageId, 
-				Config.smallInstanceType) ){
-			if(cnt == numberOfSmallInstance) break;
-			cnt++;
-			instanceids.add(instanceId);
-		}
-		
-		if(numberOfSmallInstance > instanceids.size() ){	
-			for( String instanceId : ec2.runInstance(Config.ConverterInstanceImageId, 
-					Config.smallInstanceType, numberOfSmallInstance - instanceids.size()) ){
-				instanceids.add(instanceId);
+	private static void initFromProperties() throws AmazonServiceException, NumberFormatException, AmazonClientException, IOException{
+		Properties Properties = System.getProperties();		
+		for(Object o : Properties.stringPropertyNames()){
+			String key = (String) o;
+			if( key.contains("group") ){
+				String value = Properties.get(key).toString();
+
+				int mid = key.lastIndexOf(":");
+				String groupname = key.substring(0,mid);
+				String convertsize = key.substring(mid+1,key.length());
+				
+				mid = value.lastIndexOf(":");
+				String instancetype = value.substring(0,mid);
+				String instancepiece = value.substring(mid+1,value.length());
+				
+				System.out.println(groupname);
+				System.out.println(convertsize);
+				System.out.println(instancetype);
+				System.out.println(instancepiece);
+
+				
+				Group group = new Group(getInstanceType(instancetype), convertsize, Integer.parseInt(instancepiece));
+				groups.add(group);
 			}
 		}
-
-		for( String instanceId : instanceids ){		
-			registerInstance(instanceId, smallInstances);
-		}
-
-		while(smallInstances.size() <= 0){
-			;;
-		}
-		
-		StringBuilder idToLog = new StringBuilder();
-		System.out.print("Small instances: ");
-		for(String id: smallInstances.keySet()){
-			System.out.print(id + ", ");
-			idToLog.append(id + ", ");
-		}
-		System.out.println();
-		//managementlogger.info("Small instances: " + idToLog);
-	}
-	private static void startUpMediumInstances() throws AmazonServiceException, AmazonClientException, IOException{
-		List<String> instanceids = new ArrayList<String>();
-		int cnt = 0;
-		for( String instanceId : ec2.listOfRunningInstances(Config.ConverterInstanceImageId, 
-				Config.mediumInstanceType) ){
-			if(cnt == numberOfMediumInstance) break;
-			
-			// ha netalántán egyeznének azonosítók, akkor ő már ne legyen más típusú
-			// ez általában akkor fordulhat elő, ha azonos az instancetype
-			if( ! smallInstances.keySet().contains(instanceId) ){
-				instanceids.add(instanceId);
-				cnt++;
-			}
-		}
-			
-		
-		if(numberOfMediumInstance > instanceids.size() ){	
-			for( String instanceId : ec2.runInstance(Config.ConverterInstanceImageId, 
-					Config.mediumInstanceType, numberOfMediumInstance - instanceids.size()) ){
-				instanceids.add(instanceId);
-			}
-		}
-
-		for( String instanceId : instanceids ){		
-			registerInstance(instanceId, mediumInstances);
-		}
-
-		while(mediumInstances.size() <= 0){
-			;;
-		}
-
-		System.out.print("Medium instances: ");
-		for(String id: mediumInstances.keySet()){
-			System.out.print(id + ", ");
-		}
-		System.out.println();
-	}
-	private static void startUpLargeInstances() throws AmazonServiceException, AmazonClientException, IOException{
-		List<String> instanceids = new ArrayList<String>();
-		int cnt = 0;
-		for( String instanceId : ec2.listOfRunningInstances(Config.ConverterInstanceImageId, 
-				Config.largeInstanceType) ){
-			if(cnt == numberOfMediumInstance) break;
-			
-			// ha netalántán egyeznének azonosítók, akkor ő már ne legyen más típusú
-			// ez általában akkor fordulhat elő, ha azonos az instancetype
-			if( ! smallInstances.keySet().contains(instanceId) 
-					&& ! mediumInstances.keySet().contains(instanceId) ){
-				instanceids.add(instanceId);
-				cnt++;
-			}
-		}
-		
-		if(numberOfLargeInstance > instanceids.size() ){	
-			for( String instanceId : ec2.runInstance(Config.ConverterInstanceImageId, 
-					Config.largeInstanceType, numberOfLargeInstance - instanceids.size()) ){
-				instanceids.add(instanceId);
-			}
-		}
-
-		for( String instanceId : instanceids ){		
-			registerInstance(instanceId, largeInstances);
-		}
-
-		while(largeInstances.size() <= 0){
-			;;
-		}
-		
-		System.out.print("Large instances: ");
-		for(String id: largeInstances.keySet()){
-			System.out.print(id + ", ");
-		}
-		System.out.println();
 	}
 	
+	private static String getInstanceType(String str){
+		if(str.equals("micro")) return "t1.micro";
+		if(str.equals("small")) return "m1.small";
+		if(str.equals("medium")) return "m1.medium";
+		if(str.equals("large")) return "m1.large";
+		if(str.equals("xlarge")) return "m1.xlarge";
+		return null;
+	}
 }

@@ -8,7 +8,8 @@ public class Config {
 	/*
 	 * the path of the directory, which contains a lot of images to test the application
 	 */
-	public static final String ImageGaleryPath = "/home/hokotro/thesis_galery/";
+	//public static final String ImageGaleryPath = "/home/hokotro/thesis_galery/";
+	public static final String ImageGaleryPath = "/home/ubuntu/image/";
 	
 	/*
 	 * mérési eredmény: 
