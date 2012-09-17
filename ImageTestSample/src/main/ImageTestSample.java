@@ -1,6 +1,5 @@
 package main;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -14,7 +13,7 @@ public class ImageTestSample {
 
 		ExecutorService executor = Executors.newFixedThreadPool(NUMBEROFTHREAD);
 		int i = 0;
-		while(i < 1){
+		while(i < 1) {
 			/*
 			 * a Curl run() metódusában van egy sleep(1000) !!
 			 * vagy Pareto

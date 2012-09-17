@@ -2,6 +2,13 @@ package main;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
+
+import com.amazonaws.AmazonClientException;
+import com.amazonaws.AmazonServiceException;
 import com.kadar.aws.handler.S3Handler;
 import com.kadar.image.config.Config;
 import com.kadar.message.handler.MessageHandler;
@@ -10,15 +17,44 @@ import com.kadar.message.handler.TaskMessage;
 public class ConvertConsumer implements Runnable {
 
 	private final String InstanceId;
-	private final S3Handler s3;
+	private S3Handler s3;
 	private TaskMessage tm;
 	private final String bucketName;
-	
-	public ConvertConsumer(String InstanceId, TaskMessage tm) throws IOException {
 
+	//logger
+	static Logger logger = Logger.getLogger("convertsamplelogger");
+	static FileHandler fh;
+	
+	public ConvertConsumer(String InstanceId, TaskMessage tm) {
+		
+	    try {
+		      // This block configure the logger with handler and formatter
+		      fh = new FileHandler("/home/ubuntu/convertsample.log", true);
+		      logger.addHandler(fh);
+		      logger.setLevel(Level.ALL);
+		      SimpleFormatter formatter = new SimpleFormatter();
+		      fh.setFormatter(formatter);
+
+		    } catch (SecurityException e) {
+		      e.printStackTrace();
+		    } catch (IOException e) {
+		      e.printStackTrace();
+		    }
+	    
 		this.InstanceId = InstanceId;
 		this.tm = tm;
-		s3 = new S3Handler();
+		try {
+			s3 = new S3Handler();
+		} catch (AmazonServiceException e) {
+			logger.log(Level.SEVERE, e.getMessage());
+			e.printStackTrace();
+		} catch (AmazonClientException e) {
+			logger.log(Level.SEVERE, e.getMessage());
+			e.printStackTrace();
+		} catch (IOException e) {
+			logger.log(Level.SEVERE, e.getMessage());
+			e.printStackTrace();
+		}
 		bucketName = Config.bucketName;
 		
 	}
@@ -39,7 +75,7 @@ public class ConvertConsumer implements Runnable {
 		String newfile = fname + "_" + tm.getConvertValue() + "." + ext;
 		
 		try {
-			tm.setStartConvertTime(System.currentTimeMillis());
+			tm.setStartJobTime(System.currentTimeMillis());
 			
 			Process p = Runtime.getRuntime().exec(new String[] {
 					"convert", "temp." + fname + "." + ext, 
@@ -51,7 +87,7 @@ public class ConvertConsumer implements Runnable {
 			File convertedfile = new File(newfile);
 			s3.putObjectWithPublicRead(bucketName, newfile, convertedfile);
 			
-			tm.setEndConvertTime(System.currentTimeMillis());			
+			tm.setEndJobTime(System.currentTimeMillis());			
 			MessageHandler smh = new MessageHandler(Config.statisticMessageQueue);
 			smh.sendMessage(tm);
 			
@@ -62,10 +98,10 @@ public class ConvertConsumer implements Runnable {
 			pd.waitFor();
 			
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
+			logger.log(Level.SEVERE, e.getMessage());
 			e.printStackTrace();
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
+			logger.log(Level.SEVERE, e.getMessage());
 			e.printStackTrace();
 		}		
 	}

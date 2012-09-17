@@ -5,6 +5,15 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
+
+import org.codehaus.jackson.JsonGenerationException;
+import org.codehaus.jackson.JsonParseException;
+import org.codehaus.jackson.map.JsonMappingException;
+
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.kadar.aws.handler.EC2Handler;
@@ -22,23 +31,59 @@ public class ImageConvertSample {
 	private static MessageHandler mh;
 	private static MessageHandler smh;
 
+	//logger
+	static Logger logger = Logger.getLogger("convertsamplelogger");
+	static FileHandler fh;
+	
 	public static void main(String[] args) 
-			throws AmazonServiceException, AmazonClientException, IOException, InterruptedException {
+			//throws AmazonServiceException, AmazonClientException, IOException, InterruptedException 
+			{
 
+	    try {
+	      // This block configure the logger with handler and formatter
+	      fh = new FileHandler("/home/ubuntu/convertsample.log", true);
+	      logger.addHandler(fh);
+	      logger.setLevel(Level.ALL);
+	      SimpleFormatter formatter = new SimpleFormatter();
+	      fh.setFormatter(formatter);
+
+	      // the following statement is used to log any messages   
+	      //logger.log(Level.WARNING,"My first log");
+
+	    } catch (SecurityException e) {
+	      e.printStackTrace();
+	    } catch (IOException e) {
+	      e.printStackTrace();
+	    }
+		
+		
 		 
-		InstanceId = getInstanceId();	
-	    System.out.println( InstanceId );
+		try {
+			InstanceId = getInstanceId();
+		} catch (IOException e) {
+			logger.log(Level.SEVERE, e.getMessage());
+			e.printStackTrace();
+		}	
 		if(InstanceId == null || InstanceId.equals("") || InstanceId.equals(" ") ){
+			InstanceId = "localhost";			
+		}
+	    System.out.println( InstanceId );
 
-			InstanceId = "localhost";
-			
+		try {
+			ec2 = new EC2Handler();
+			mh = new MessageHandler(InstanceId + "-queue");
+			smh = new MessageHandler("default-statistic-queue");
+		} catch (AmazonServiceException e) {
+			logger.log(Level.SEVERE, e.getMessage());
+			e.printStackTrace();
+		} catch (AmazonClientException e) {
+			logger.log(Level.SEVERE, e.getMessage());
+			e.printStackTrace();
+		} catch (IOException e) {
+			logger.log(Level.SEVERE, e.getMessage());
+			e.printStackTrace();
 		}
 
-
-		ec2 = new EC2Handler();
-		mh = new MessageHandler(InstanceId + "-queue");
-		smh = new MessageHandler("default-statistic-queue");
-		//mh = new MessageHandler("default-s3-upload-queue");
 
 	    System.out.println("Config: " 
 	    		+ "InstanceId: " + InstanceId 
@@ -48,31 +93,56 @@ public class ImageConvertSample {
 	    
 		ExecutorService executor = Executors.newFixedThreadPool(NUMBEROFTHREAD);
 		while(running){
-			for(TaskMessage tm : mh.receiveTaskMessagesWithDelete(MaxNumberOfReceivedMessages) ){
-				if(tm != null){
-					
-					if(tm.getMessageType().equals(TaskMessageType.InstanceShutdown)){
-						running = false;
+			try {
+				for(TaskMessage tm : mh.receiveTaskMessagesWithDelete(MaxNumberOfReceivedMessages) ){
+					if(tm != null){
 						
-					}else if(tm.getMessageType().equals(TaskMessageType.InstanceStart)){
-						
-						tm.setEndJobTime(System.currentTimeMillis());
-						smh.sendMessage(tm);
-						//System.out.println("Instance started: " + endTime);
-						
-					}else if(tm.getMessageType().equals(TaskMessageType.ImageToConvert)
-							//|| tm.getMessageType().equals(TaskMessageType.ConvertMediumImage)
-							//|| tm.getMessageType().equals(TaskMessageType.ConvertLargeImage)
-							){
-						
-						Runnable worker = new ConvertConsumer(InstanceId, tm);
-						executor.execute(worker);
-						
+						if(tm.getMessageType().equals(TaskMessageType.InstanceShutdown)){
+							running = false;
+							
+						}else if(tm.getMessageType().equals(TaskMessageType.InstanceStart)){
+							
+							tm.setEndJobTime(System.currentTimeMillis());
+							smh.sendMessage(tm);
+							//System.out.println("Instance started: " + endTime);
+							
+						}else if(tm.getMessageType().equals(TaskMessageType.ImageToConvert)
+								//|| tm.getMessageType().equals(TaskMessageType.ConvertMediumImage)
+								//|| tm.getMessageType().equals(TaskMessageType.ConvertLargeImage)
+								){
+							
+							Runnable worker = new ConvertConsumer(InstanceId, tm);
+							executor.execute(worker);
+							
+						}
 					}
 				}
+			} catch (AmazonServiceException e) {
+				logger.log(Level.SEVERE, e.getMessage());
+				e.printStackTrace();
+			} catch (JsonParseException e) {
+				logger.log(Level.SEVERE, e.getMessage());
+				e.printStackTrace();
+			} catch (JsonMappingException e) {
+				logger.log(Level.SEVERE, e.getMessage());
+				e.printStackTrace();
+			} catch (JsonGenerationException e) {
+				logger.log(Level.SEVERE, e.getMessage());
+				e.printStackTrace();
+			} catch (AmazonClientException e) {
+				logger.log(Level.SEVERE, e.getMessage());
+				e.printStackTrace();
+			} catch (IOException e) {
+				logger.log(Level.SEVERE, e.getMessage());
+				e.printStackTrace();
 			}
 			
-			Thread.sleep(50);
+			try {
+				Thread.sleep(50);
+			} catch (InterruptedException e) {
+				logger.log(Level.SEVERE, e.getMessage());
+				e.printStackTrace();
+			}
 		}
 		
 		// This will make the executor accept no new threads
@@ -81,7 +151,12 @@ public class ImageConvertSample {
 		// Wait until all threads are finish
 		while (!executor.isTerminated()) {
 			System.out.println("Waiting for all threads ...");
-			Thread.sleep(1000);
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				logger.log(Level.SEVERE, e.getMessage());
+				e.printStackTrace();
+			}
 		}
 		System.out.println("Shutting down ...");
 		instanceShutdown();	

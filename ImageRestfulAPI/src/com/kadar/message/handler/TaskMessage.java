@@ -1,16 +1,19 @@
 package com.kadar.message.handler;
 
+import com.kadar.statistic.StatHolderItem;
 
-public class TaskMessage {
 
-	private String MessageType;
+
+public class TaskMessage implements StatHolderItem{
+
+	private TaskMessageType MessageType;
 	private String KeyOfImage;
 	private String OriginalValue;
 	private String ConvertValue;
 	private long startJobTime;
 	private long endJobTime;
-	private long startConvertTime;
-	private long endConvertTime;
+	private long startTaskTime;
+	private long endTaskTime;
 	private long Timestamp;
 	private String GroupId;
 	private String InstanceId;
@@ -20,14 +23,14 @@ public class TaskMessage {
 	private String ReceiptHandle;
 	
 	public static class Builder{
-		private String MessageType;
+		private TaskMessageType MessageType;
 		private String KeyOfImage;
 		private String OriginalValue;
 		private String ConvertValue;
 		private long startJobTime;
 		private long endJobTime;
-		private long startConvertTime;
-		private long endConvertTime;
+		private long startTaskTime;
+		private long endTaskTime;
 		private long Timestamp;
 		private String GroupId;
 		private String InstanceId;
@@ -36,7 +39,7 @@ public class TaskMessage {
 		private String MessageId;
 		private String ReceiptHandle;
 
-		public Builder setMessageType(String val){
+		public Builder setMessageType(TaskMessageType val){
 			MessageType = val; return this;
 		}
 		public Builder setKeyOfImage(String val){
@@ -55,11 +58,11 @@ public class TaskMessage {
 		public Builder setendJobTime(long val){
 			endJobTime = val; return this;
 		}
-		public Builder setstartConvertTime(long val){
-			startConvertTime = val; return this;
+		public Builder setstartTaskTime(long val){
+			startTaskTime = val; return this;
 		}
-		public Builder setendConvertTime(long val){
-			endConvertTime = val; return this;
+		public Builder setendTaskTime(long val){
+			endTaskTime = val; return this;
 		}
 		public Builder setTimestamp(long val){
 			Timestamp = val; return this;
@@ -103,8 +106,8 @@ public class TaskMessage {
 
 		startJobTime = builder.startJobTime;
 		endJobTime = builder.endJobTime;
-		startConvertTime = builder.startConvertTime;
-		endConvertTime = builder.endConvertTime;
+		startTaskTime = builder.startTaskTime;
+		endTaskTime = builder.endTaskTime;
 		Timestamp = builder.Timestamp;
 		
 		GroupId = builder.GroupId;
@@ -116,11 +119,11 @@ public class TaskMessage {
 		ReceiptHandle = builder.ReceiptHandle;
 	}
 
-	public String getMessageType() {
+	public TaskMessageType getMessageType() {
 		return MessageType;
 	}
 
-	public void setMessageType(String messageType) {
+	public void setMessageType(TaskMessageType messageType) {
 		MessageType = messageType;
 	}
 
@@ -164,20 +167,20 @@ public class TaskMessage {
 		this.endJobTime = endJobTime;
 	}
 
-	public long getStartConvertTime() {
-		return startConvertTime;
+	public long getStartTaskTime() {
+		return startTaskTime;
 	}
 
-	public void setStartConvertTime(long startConvertTime) {
-		this.startConvertTime = startConvertTime;
+	public void setStartTaskTime(long startTaskTime) {
+		this.startTaskTime = startTaskTime;
 	}
 
-	public long getEndConvertTime() {
-		return endConvertTime;
+	public long getEndTaskTime() {
+		return endTaskTime;
 	}
 
-	public void setEndConvertTime(long endConvertTime) {
-		this.endConvertTime = endConvertTime;
+	public void setEndTaskTime(long endTaskTime) {
+		this.endTaskTime = endTaskTime;
 	}
 
 	public String getMessageBodyInJSON() {
@@ -230,13 +233,18 @@ public class TaskMessage {
 	}
 
 	@Override
+	public int compareTo(StatHolderItem b) {
+       	return (int) (b.getTimestamp() - this.getTimestamp());
+	}
+	
+	@Override
 	public String toString() {
 		return "TaskMessage [MessageType=" + MessageType + ", KeyOfImage="
 				+ KeyOfImage + ", OriginalValue=" + OriginalValue
 				+ ", ConvertValue=" + ConvertValue + ", startJobTime="
 				+ startJobTime + ", endJobTime=" + endJobTime
-				+ ", startConvertTime=" + startConvertTime
-				+ ", endConvertTime=" + endConvertTime + ", Timestamp="
+				+ ", startTaskTime=" + startTaskTime
+				+ ", endTaskTime=" + endTaskTime + ", Timestamp="
 				+ Timestamp + ", GroupId=" + GroupId + ", InstanceId="
 				+ InstanceId + ", MessageBodyInJSON=" + MessageBodyInJSON
 				+ ", MessageId=" + MessageId + ", ReceiptHandle="
@@ -267,12 +275,11 @@ public class TaskMessage {
 		result = prime * result
 				+ ((ReceiptHandle == null) ? 0 : ReceiptHandle.hashCode());
 		result = prime * result + (int) (Timestamp ^ (Timestamp >>> 32));
-		result = prime * result
-				+ (int) (endConvertTime ^ (endConvertTime >>> 32));
 		result = prime * result + (int) (endJobTime ^ (endJobTime >>> 32));
-		result = prime * result
-				+ (int) (startConvertTime ^ (startConvertTime >>> 32));
+		result = prime * result + (int) (endTaskTime ^ (endTaskTime >>> 32));
 		result = prime * result + (int) (startJobTime ^ (startJobTime >>> 32));
+		result = prime * result
+				+ (int) (startTaskTime ^ (startTaskTime >>> 32));
 		return result;
 	}
 
@@ -315,10 +322,7 @@ public class TaskMessage {
 				return false;
 		} else if (!MessageId.equals(other.MessageId))
 			return false;
-		if (MessageType == null) {
-			if (other.MessageType != null)
-				return false;
-		} else if (!MessageType.equals(other.MessageType))
+		if (MessageType != other.MessageType)
 			return false;
 		if (OriginalValue == null) {
 			if (other.OriginalValue != null)
@@ -332,16 +336,18 @@ public class TaskMessage {
 			return false;
 		if (Timestamp != other.Timestamp)
 			return false;
-		if (endConvertTime != other.endConvertTime)
-			return false;
 		if (endJobTime != other.endJobTime)
 			return false;
-		if (startConvertTime != other.startConvertTime)
+		if (endTaskTime != other.endTaskTime)
 			return false;
 		if (startJobTime != other.startJobTime)
+			return false;
+		if (startTaskTime != other.startTaskTime)
 			return false;
 		return true;
 	}
 
 
+
+	
 }

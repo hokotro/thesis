@@ -6,38 +6,34 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-
-import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.JsonParseException;
 import org.codehaus.jackson.map.JsonMappingException;
 
-
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
-import com.kadar.aws.handler.EC2Handler;
 import com.kadar.image.config.Config;
 import com.kadar.message.handler.MessageHandler;
 import com.kadar.message.handler.TaskMessage;
-import com.kadar.message.handler.TaskMessageType;
+import com.kadar.util.ConcurrentListHolderMap;
 
 public class S3Consumer implements Runnable {
-	private static EC2Handler ec2;
+
 	private MessageHandler s3mh;
 
 	private Map<String, MessageHandler> smallInstances;
 	private Map<String, MessageHandler> mediumInstances;
 	private Map<String, MessageHandler> largeInstances;
 	
-	final List<Group> groups;
-	final TaskIssues taskissues;
+	private final Map<Integer, Group> groups;
+	private final ConcurrentListHolderMap<String, Integer> assignedtasks;
 	
-	public S3Consumer(List<Group> groups, TaskIssues taskissues ) 
+	public S3Consumer(Map<Integer, Group> groups, 
+			ConcurrentListHolderMap<String, Integer> assignedtasks ) 
 					throws AmazonServiceException, AmazonClientException, IOException{
 		this.groups = groups;
-		this.taskissues = taskissues;
+		this.assignedtasks = assignedtasks;
 		
 		s3mh = new MessageHandler(Config.s3queue);
-		ec2 = new EC2Handler();
 
 	}
 
@@ -52,10 +48,10 @@ public class S3Consumer implements Runnable {
 				for(TaskMessage msg:  
 					s3mh.receiveTaskMessagesWithDelete(Config.numberOfMaxReceivedMessage)){			
 	
-					for(Group group: groups){
-						group.addJob(msg);
-						
-						taskissues.put(msg.getKeyOfImage(), group.groupid);
+					for(Integer groupid: groups.keySet()){
+						Group group = groups.get(groupid);
+						group.addJob(msg);						
+						assignedtasks.put(msg.getKeyOfImage(), group.getGroupId());
 					}
 
 				}

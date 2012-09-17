@@ -6,7 +6,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.UUID;
 
 import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
@@ -26,7 +25,6 @@ import com.kadar.image.config.Config;
 import com.kadar.message.handler.MessageHandler;
 import com.kadar.message.handler.TaskMessage;
 import com.kadar.message.handler.TaskMessageType;
-import com.sun.jersey.api.view.Viewable;
 
 //import com.amazonaws.AmazonClientException;
 //import com.amazonaws.AmazonServiceException;
@@ -81,7 +79,8 @@ public class ImageService {
 		MessageHandler mh = new MessageHandler(Config.s3queue);
 		TaskMessage tm = new TaskMessage.Builder()
 			.setOriginalValue(String.valueOf(size[0]) + "x" + String.valueOf(size[1]) ) 			
-			.setstartJobTime(System.currentTimeMillis())
+			.setstartTaskTime(System.currentTimeMillis())
+			
 			//.setConvertValue("50%")
 			.setKeyOfImage(a_filename)
 			.setMessageType(TaskMessageType.ImageToConvert)

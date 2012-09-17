@@ -16,8 +16,8 @@ import com.amazonaws.AmazonServiceException;
 import com.kadar.message.handler.MessageHandler;
 import com.kadar.message.handler.TaskMessage;
 import com.kadar.message.handler.TaskMessageType;
+import com.kadar.statistic.StatHolder;
 
-import main.StatHolder;
 
 
 public class StatCollection implements Runnable{
@@ -38,7 +38,7 @@ public class StatCollection implements Runnable{
 		
 		while(true){
 		
-			rawavarage.add(statholder.getRawAvarage());
+			rawavarage.add(statholder.getRawAvarageFromTaskTime());
 			
 			try{
 				for( TaskMessage msg : mh1.receiveTaskMessagesWithDelete(10) ){
@@ -82,7 +82,7 @@ public class StatCollection implements Runnable{
 			
 			
 			try {
-				Thread.sleep(100);
+				Thread.sleep(1000);
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();

@@ -1,6 +1,9 @@
 package main;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
+
+import com.kadar.image.config.Config;
 
 import umontreal.iro.lecuyer.randvar.ParetoGen;
 import umontreal.iro.lecuyer.rng.LFSR113;
@@ -64,9 +67,12 @@ public class Curl implements Runnable {
 		
 				//String[] command = new String[] {"curl", "-T", path, files[i], Config.InstanceAddress, ":8080/ImageRestfulService/rest/imageservice/putFile/", files[i] };
 				//System.out.println(command);
-				Process process = Runtime.getRuntime().exec(new String[] {"curl", "-T", path + files[i], Config.InstanceAddress + ":8080/ImageRestfulAPI/rest/imageservice/putFile/", files[i] });
+				String[] command = new String[] {"curl", "-T", path + files[i], Config.RestfulAPIInstanceAddress + ":8080/ImageRestfulAPI/rest/imageservice/putFile/", files[i] };
+				System.out.println(Arrays.toString(command));
+				Process process = Runtime.getRuntime().exec(command);
+				System.out.println(process.getOutputStream());
 				process.waitFor();
-				System.out.println(process.exitValue());
+				//System.out.println(process.exitValue());
 				
 			} catch (IOException e) {
 					e.printStackTrace();
